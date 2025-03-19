@@ -97,7 +97,7 @@ func (s *kvServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeResp
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, r.String(), s.lg)
+	warnLog(ctx, opStartTime, "(Range):"+r.String(), s.lg)
 	s.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -112,7 +112,7 @@ func (s *kvServer) Put(ctx context.Context, r *pb.PutRequest) (*pb.PutResponse, 
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, string(r.Key), s.lg)
+	warnLog(ctx, opStartTime, "(Put):"+string(r.Key), s.lg)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -128,7 +128,7 @@ func (s *kvServer) DeleteRange(ctx context.Context, r *pb.DeleteRangeRequest) (*
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, r.String(), s.lg)
+	warnLog(ctx, opStartTime, "(DeleteRange):"+r.String(), s.lg)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -151,7 +151,7 @@ func (s *kvServer) Txn(ctx context.Context, r *pb.TxnRequest) (*pb.TxnResponse, 
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, r.String(), s.lg)
+	warnLog(ctx, opStartTime, "(Txn):"+r.String(), s.lg)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -164,7 +164,7 @@ func (s *kvServer) Compact(ctx context.Context, r *pb.CompactionRequest) (*pb.Co
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, r.String(), s.lg)
+	warnLog(ctx, opStartTime, "(Compact):"+r.String(), s.lg)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil

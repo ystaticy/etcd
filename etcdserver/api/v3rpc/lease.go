@@ -43,19 +43,18 @@ func (ls *LeaseServer) LeaseGrant(ctx context.Context, cr *pb.LeaseGrantRequest)
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, cr.String(), ls.lg)
+	warnLog(ctx, opStartTime, "(LeaseGrant):"+cr.String(), ls.lg)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
 
 func (ls *LeaseServer) LeaseRevoke(ctx context.Context, rr *pb.LeaseRevokeRequest) (*pb.LeaseRevokeResponse, error) {
-
 	opStartTime := time.Now()
 	resp, err := ls.le.LeaseRevoke(ctx, rr)
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, rr.String(), ls.lg)
+	warnLog(ctx, opStartTime, "(LeaseRevoke):"+rr.String(), ls.lg)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -73,7 +72,7 @@ func (ls *LeaseServer) LeaseTimeToLive(ctx context.Context, rr *pb.LeaseTimeToLi
 			TTL:    -1,
 		}
 	}
-	warnLog(ctx, opStartTime, rr.String(), ls.lg)
+	warnLog(ctx, opStartTime, "(LeaseTimeToLive):"+rr.String(), ls.lg)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -90,13 +89,12 @@ func (ls *LeaseServer) LeaseLeases(ctx context.Context, rr *pb.LeaseLeasesReques
 			Leases: []*pb.LeaseStatus{},
 		}
 	}
-	warnLog(ctx, opStartTime, rr.String(), ls.lg)
+	warnLog(ctx, opStartTime, "(LeaseLeases):"+rr.String(), ls.lg)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
 
 func (ls *LeaseServer) LeaseKeepAlive(stream pb.Lease_LeaseKeepAliveServer) (err error) {
-
 	errc := make(chan error, 1)
 	go func() {
 		errc <- ls.leaseKeepAlive(stream)
