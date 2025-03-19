@@ -156,7 +156,7 @@ func warnOfExpensiveReadOnlyTxnRequest(ctx context.Context, lg *zap.Logger, warn
 	warnOfExpensiveGenericRequest(ctx, lg, warningApplyDuration, now, reqStringer, "read-only range ", resp, err, "warnOfExpensiveReadOnlyTxnRequest")
 }
 
-func getClientHostPort(ctx context.Context, lg *zap.Logger) (string, string, error) {
+func getClientHostPort(ctx context.Context) (string, string, error) {
 	if ctx == nil {
 		return "", "", nil
 	}
@@ -165,7 +165,6 @@ func getClientHostPort(ctx context.Context, lg *zap.Logger) (string, string, err
 
 		host, port, err := net.SplitHostPort(addr)
 		if err != nil {
-			lg.Error("[debug-serverless-apply] Failed to parse address: %v", zap.Error(err))
 			return "", "", err
 		}
 		return host, port, nil
