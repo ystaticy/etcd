@@ -185,7 +185,7 @@ func warnOfExpensiveGenericRequest(ctx context.Context, lg *zap.Logger, warningA
 	d := time.Since(now)
 	if d > warningApplyDuration {
 		if lg != nil {
-			clientHost, clientPort, err2 := getClientHostPort(ctx, lg)
+			clientHost, clientPort, err2 := getClientHostPort(ctx)
 			lg.Warn(
 				"apply request took too long",
 				zap.String("funcName", funcName),
