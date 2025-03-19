@@ -70,6 +70,10 @@ func getClientHostPort(ctx context.Context) (string, string, error) {
 }
 
 func warnLog(ctx context.Context, now time.Time, request string, lg *zap.Logger, warnDuration time.Duration) error {
+	if lg == nil {
+		lg.Error("[debug-serverless] logger is nil")
+		return nil
+	}
 	if time.Since(now) > warnDuration { // 100ms
 		host, port, err := getClientHostPort(ctx)
 		if err != nil {
