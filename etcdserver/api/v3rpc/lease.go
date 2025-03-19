@@ -30,10 +30,12 @@ type LeaseServer struct {
 	lg  *zap.Logger
 	hdr header
 	le  etcdserver.Lessor
+	cfg *etcdserver.ServerConfig
 }
 
 func NewLeaseServer(s *etcdserver.EtcdServer) pb.LeaseServer {
-	return &LeaseServer{lg: s.Cfg.Logger, le: s, hdr: newHeader(s)}
+
+	return &LeaseServer{lg: s.Cfg.Logger, le: s, hdr: newHeader(s), cfg: &s.Cfg}
 }
 
 func (ls *LeaseServer) LeaseGrant(ctx context.Context, cr *pb.LeaseGrantRequest) (*pb.LeaseGrantResponse, error) {
@@ -43,7 +45,7 @@ func (ls *LeaseServer) LeaseGrant(ctx context.Context, cr *pb.LeaseGrantRequest)
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(LeaseGrant):"+cr.String(), ls.lg)
+	warnLog(ctx, opStartTime, "(LeaseGrant):"+cr.String(), ls.lg, ls.cfg.WarningApplyDuration)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -54,7 +56,7 @@ func (ls *LeaseServer) LeaseRevoke(ctx context.Context, rr *pb.LeaseRevokeReques
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(LeaseRevoke):"+rr.String(), ls.lg)
+	warnLog(ctx, opStartTime, "(LeaseRevoke):"+rr.String(), ls.lg, ls.cfg.WarningApplyDuration)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -72,7 +74,7 @@ func (ls *LeaseServer) LeaseTimeToLive(ctx context.Context, rr *pb.LeaseTimeToLi
 			TTL:    -1,
 		}
 	}
-	warnLog(ctx, opStartTime, "(LeaseTimeToLive):"+rr.String(), ls.lg)
+	warnLog(ctx, opStartTime, "(LeaseTimeToLive):"+rr.String(), ls.lg, ls.cfg.WarningApplyDuration)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -89,7 +91,7 @@ func (ls *LeaseServer) LeaseLeases(ctx context.Context, rr *pb.LeaseLeasesReques
 			Leases: []*pb.LeaseStatus{},
 		}
 	}
-	warnLog(ctx, opStartTime, "(LeaseLeases):"+rr.String(), ls.lg)
+	warnLog(ctx, opStartTime, "(LeaseLeases):"+rr.String(), ls.lg, ls.cfg.WarningApplyDuration)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }

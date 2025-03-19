@@ -69,8 +69,8 @@ func getClientHostPort(ctx context.Context) (string, string, error) {
 
 }
 
-func warnLog(ctx context.Context, now time.Time, request string, lg *zap.Logger) error {
-	if time.Since(now) > s.cfg.WarningApplyDuration { // 100ms
+func warnLog(ctx context.Context, now time.Time, request string, lg *zap.Logger, warnDuration time.Duration) error {
+	if time.Since(now) > warnDuration { // 100ms
 		host, port, err := getClientHostPort(ctx)
 		if err != nil {
 			lg.Error("[debug-serverless] get client host port err",
@@ -97,7 +97,7 @@ func (s *kvServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeResp
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(Range):"+r.String(), s.lg)
+	warnLog(ctx, opStartTime, "(Range):"+r.String(), s.lg, s.cfg.WarningApplyDuration)
 	s.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -112,7 +112,7 @@ func (s *kvServer) Put(ctx context.Context, r *pb.PutRequest) (*pb.PutResponse, 
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(Put):"+string(r.Key), s.lg)
+	warnLog(ctx, opStartTime, "(Put):"+string(r.Key), s.lg, s.cfg.WarningApplyDuration)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -128,7 +128,7 @@ func (s *kvServer) DeleteRange(ctx context.Context, r *pb.DeleteRangeRequest) (*
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(DeleteRange):"+r.String(), s.lg)
+	warnLog(ctx, opStartTime, "(DeleteRange):"+r.String(), s.lg, s.cfg.WarningApplyDuration)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -151,7 +151,7 @@ func (s *kvServer) Txn(ctx context.Context, r *pb.TxnRequest) (*pb.TxnResponse, 
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(Txn):"+r.String(), s.lg)
+	warnLog(ctx, opStartTime, "(Txn):"+r.String(), s.lg, s.cfg.WarningApplyDuration)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -164,7 +164,7 @@ func (s *kvServer) Compact(ctx context.Context, r *pb.CompactionRequest) (*pb.Co
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(Compact):"+r.String(), s.lg)
+	warnLog(ctx, opStartTime, "(Compact):"+r.String(), s.lg, s.cfg.WarningApplyDuration)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
