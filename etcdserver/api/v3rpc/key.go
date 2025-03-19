@@ -70,7 +70,7 @@ func getClientHostPort(ctx context.Context) (string, string, error) {
 }
 
 func warnLog(ctx context.Context, now time.Time, request string, lg *zap.Logger) error {
-	if time.Since(now) > 0 { // 100ms //s.cfg.WarningApplyDuration
+	if time.Since(now) > s.cfg.WarningApplyDuration { // 100ms
 		host, port, err := getClientHostPort(ctx)
 		if err != nil {
 			lg.Error("[debug-serverless] get client host port err",
