@@ -156,22 +156,21 @@ func warnOfExpensiveReadOnlyTxnRequest(ctx context.Context, lg *zap.Logger, warn
 	warnOfExpensiveGenericRequest(ctx, lg, warningApplyDuration, now, reqStringer, "read-only range ", resp, err, "warnOfExpensiveReadOnlyTxnRequest")
 }
 
-func getClientHostPort(ctx context.Context, lg *zap.Logger) (host string, port string, err error) {
+func getClientHostPort(ctx context.Context, lg *zap.Logger) (string, string, error) {
 	if ctx == nil {
 		return "", "", nil
 	}
 	if p, ok := peer.FromContext(ctx); ok {
 		addr := p.Addr.String()
-		lg.Info("test-yjy Request from host: %s", zap.String("addr", addr))
 
 		host, port, err := net.SplitHostPort(addr)
 		if err != nil {
-			lg.Error("test-yjy Failed to parse address: %v", zap.Error(err))
+			lg.Error("[debug-serverless-apply] Failed to parse address: %v", zap.Error(err))
 			return "", "", err
 		}
 		return host, port, nil
 	}
-	return "", "", errors.New("")
+	return "", "", errors.New("get peer from ctx is not ok")
 
 }
 

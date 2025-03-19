@@ -17,12 +17,12 @@ package v3rpc
 import (
 	"context"
 	"io"
+	"time"
 
 	"go.etcd.io/etcd/etcdserver"
 	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
 	"go.etcd.io/etcd/lease"
-
 	"go.uber.org/zap"
 )
 
@@ -37,25 +37,31 @@ func NewLeaseServer(s *etcdserver.EtcdServer) pb.LeaseServer {
 }
 
 func (ls *LeaseServer) LeaseGrant(ctx context.Context, cr *pb.LeaseGrantRequest) (*pb.LeaseGrantResponse, error) {
+	opStartTime := time.Now()
 	resp, err := ls.le.LeaseGrant(ctx, cr)
 
 	if err != nil {
 		return nil, togRPCError(err)
 	}
+	warnLog(ctx, opStartTime, cr.String(), ls.lg)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
 
 func (ls *LeaseServer) LeaseRevoke(ctx context.Context, rr *pb.LeaseRevokeRequest) (*pb.LeaseRevokeResponse, error) {
+
+	opStartTime := time.Now()
 	resp, err := ls.le.LeaseRevoke(ctx, rr)
 	if err != nil {
 		return nil, togRPCError(err)
 	}
+	warnLog(ctx, opStartTime, rr.String(), ls.lg)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
 
 func (ls *LeaseServer) LeaseTimeToLive(ctx context.Context, rr *pb.LeaseTimeToLiveRequest) (*pb.LeaseTimeToLiveResponse, error) {
+	opStartTime := time.Now()
 	resp, err := ls.le.LeaseTimeToLive(ctx, rr)
 	if err != nil && err != lease.ErrLeaseNotFound {
 		return nil, togRPCError(err)
@@ -67,11 +73,13 @@ func (ls *LeaseServer) LeaseTimeToLive(ctx context.Context, rr *pb.LeaseTimeToLi
 			TTL:    -1,
 		}
 	}
+	warnLog(ctx, opStartTime, rr.String(), ls.lg)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
 
 func (ls *LeaseServer) LeaseLeases(ctx context.Context, rr *pb.LeaseLeasesRequest) (*pb.LeaseLeasesResponse, error) {
+	opStartTime := time.Now()
 	resp, err := ls.le.LeaseLeases(ctx, rr)
 	if err != nil && err != lease.ErrLeaseNotFound {
 		return nil, togRPCError(err)
@@ -82,11 +90,13 @@ func (ls *LeaseServer) LeaseLeases(ctx context.Context, rr *pb.LeaseLeasesReques
 			Leases: []*pb.LeaseStatus{},
 		}
 	}
+	warnLog(ctx, opStartTime, rr.String(), ls.lg)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
 
 func (ls *LeaseServer) LeaseKeepAlive(stream pb.Lease_LeaseKeepAliveServer) (err error) {
+
 	errc := make(chan error, 1)
 	go func() {
 		errc <- ls.leaseKeepAlive(stream)
