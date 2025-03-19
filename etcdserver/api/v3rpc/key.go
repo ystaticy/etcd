@@ -17,11 +17,16 @@ package v3rpc
 
 import (
 	"context"
+	"errors"
+	"net"
+	"time"
 
 	"go.etcd.io/etcd/etcdserver"
 	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
 	"go.etcd.io/etcd/pkg/adt"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/peer"
 
 	"github.com/coreos/pkg/capnslog"
 )
@@ -38,10 +43,46 @@ type kvServer struct {
 	// Txn.Success can have at most 128 operations,
 	// and Txn.Failure can have at most 128 operations.
 	maxTxnOps uint
+
+	lg  *zap.Logger
+	cfg *etcdserver.ServerConfig
 }
 
 func NewKVServer(s *etcdserver.EtcdServer) pb.KVServer {
-	return &kvServer{hdr: newHeader(s), kv: s, maxTxnOps: s.Cfg.MaxTxnOps}
+	return &kvServer{hdr: newHeader(s), kv: s, maxTxnOps: s.Cfg.MaxTxnOps, lg: s.Cfg.Logger, cfg: &s.Cfg}
+}
+
+func getClientHostPort(ctx context.Context, lg *zap.Logger) (string, string, error) {
+	if ctx == nil {
+		return "", "", nil
+	}
+	if p, ok := peer.FromContext(ctx); ok {
+		addr := p.Addr.String()
+
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			lg.Error("[debug-serverless] Failed to parse address: %v", zap.String("addr", addr), zap.Error(err))
+			return "", "", err
+		}
+		return host, port, nil
+	}
+	return "", "", errors.New("")
+
+}
+
+func (s *kvServer) warnLog(ctx context.Context, now time.Time, key string) error {
+	if time.Since(now) > 0 { // 100ms //s.cfg.WarningApplyDuration
+		host, port, err := getClientHostPort(ctx, s.lg)
+		if err != nil {
+			return togRPCError(err)
+		}
+		s.lg.Warn("[debug-serverless] takes too long",
+			zap.String("host", host), zap.String("port", port),
+			zap.Duration("duration", time.Since(now)),
+			zap.String("request", key),
+		)
+	}
+	return nil
 }
 
 func (s *kvServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeResponse, error) {
@@ -49,11 +90,12 @@ func (s *kvServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeResp
 		return nil, err
 	}
 
+	opStartTime := time.Now()
 	resp, err := s.kv.Range(ctx, r)
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-
+	s.warnLog(ctx, opStartTime, r.String())
 	s.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -63,10 +105,12 @@ func (s *kvServer) Put(ctx context.Context, r *pb.PutRequest) (*pb.PutResponse, 
 		return nil, err
 	}
 
+	opStartTime := time.Now()
 	resp, err := s.kv.Put(ctx, r)
 	if err != nil {
 		return nil, togRPCError(err)
 	}
+	s.warnLog(ctx, opStartTime, r.String())
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -77,10 +121,12 @@ func (s *kvServer) DeleteRange(ctx context.Context, r *pb.DeleteRangeRequest) (*
 		return nil, err
 	}
 
+	opStartTime := time.Now()
 	resp, err := s.kv.DeleteRange(ctx, r)
 	if err != nil {
 		return nil, togRPCError(err)
 	}
+	s.warnLog(ctx, opStartTime, r.String())
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -98,20 +144,25 @@ func (s *kvServer) Txn(ctx context.Context, r *pb.TxnRequest) (*pb.TxnResponse, 
 		return nil, err
 	}
 
+	opStartTime := time.Now()
 	resp, err := s.kv.Txn(ctx, r)
 	if err != nil {
 		return nil, togRPCError(err)
 	}
+	s.warnLog(ctx, opStartTime, r.String())
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
 }
 
 func (s *kvServer) Compact(ctx context.Context, r *pb.CompactionRequest) (*pb.CompactionResponse, error) {
+
+	opStartTime := time.Now()
 	resp, err := s.kv.Compact(ctx, r)
 	if err != nil {
 		return nil, togRPCError(err)
 	}
+	s.warnLog(ctx, opStartTime, r.String())
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
