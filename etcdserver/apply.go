@@ -112,7 +112,7 @@ func (s *EtcdServer) newApplierV3() applierV3 {
 func (a *applierV3backend) Apply(r *pb.InternalRaftRequest) *applyResult {
 	ar := &applyResult{}
 	defer func(start time.Time) {
-		warnOfExpensiveRequest(a.s.getLogger(), a.s.Cfg.WarningApplyDuration, start, &pb.InternalRaftStringer{Request: r}, ar.resp, ar.err)
+		warnOfExpensiveRequest(a.s.getLogger(), a.s.Cfg.WarningApplyDuration, start, &pb.InternalRaftStringer{Request: r}, ar.resp, ar.err, "Apply")
 		if ar.err != nil {
 			warnOfFailedRequest(a.s.getLogger(), start, &pb.InternalRaftStringer{Request: r}, ar.resp, ar.err)
 		}

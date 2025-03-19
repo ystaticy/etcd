@@ -210,7 +210,7 @@ func TestWarnOfExpensiveReadOnlyTxnRequest(t *testing.T) {
 			lg := zaptest.NewLogger(t)
 			start := time.Now().Add(-1 * time.Second)
 			// WarnOfExpensiveReadOnlyTxnRequest shouldn't panic.
-			warnOfExpensiveReadOnlyTxnRequest(lg, 0, start, &pb.TxnRequest{}, tc.txnResp, nil)
+			warnOfExpensiveReadOnlyTxnRequest(nil, lg, 0, start, &pb.TxnRequest{}, tc.txnResp, nil)
 		})
 	}
 }
