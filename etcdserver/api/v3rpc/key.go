@@ -155,7 +155,7 @@ func (s *kvServer) Txn(ctx context.Context, r *pb.TxnRequest) (*pb.TxnResponse, 
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(Txn):"+r.String(), s.lg, s.cfg.WarningApplyDuration)
+	warnLog(ctx, opStartTime, "(Txn):", s.lg, s.cfg.WarningApplyDuration)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
