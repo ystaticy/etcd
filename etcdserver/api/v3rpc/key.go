@@ -149,11 +149,19 @@ func (s *kvServer) Txn(ctx context.Context, r *pb.TxnRequest) (*pb.TxnResponse, 
 	if err := checkTxnRequest(r, int(s.maxTxnOps)); err != nil {
 		return nil, err
 	}
+
+	host, port, err := getClientHostPort(ctx)
+	if err != nil {
+		s.lg.Error("[debug-serverless] get client host port err",
+			zap.Error(err),
+		)
+	}
+
 	// check for forbidden put/del overlaps after checking request to avoid quadratic blowup
-	if _, _, err := checkIntervals(r.Success); err != nil {
+	if _, _, err := checkIntervals(r.Success, s.lg, "Client:"+host+":"+port); err != nil {
 		return nil, err
 	}
-	if _, _, err := checkIntervals(r.Failure); err != nil {
+	if _, _, err := checkIntervals(r.Failure, s.lg, "Client:"+host+":"+port); err != nil {
 		return nil, err
 	}
 
@@ -162,7 +170,8 @@ func (s *kvServer) Txn(ctx context.Context, r *pb.TxnRequest) (*pb.TxnResponse, 
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(Txn):", s.lg, s.cfg.WarningApplyDuration, false)
+
+	warnLog(ctx, opStartTime, "(Txn)", s.lg, s.cfg.WarningApplyDuration, true)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -242,7 +251,7 @@ func checkTxnRequest(r *pb.TxnRequest, maxTxnOps int) error {
 // checkIntervals tests whether puts and deletes overlap for a list of ops. If
 // there is an overlap, returns an error. If no overlap, return put and delete
 // sets for recursive evaluation.
-func checkIntervals(reqs []*pb.RequestOp) (map[string]struct{}, adt.IntervalTree, error) {
+func checkIntervals(reqs []*pb.RequestOp, lg *zap.Logger, moreClientMsg string) (map[string]struct{}, adt.IntervalTree, error) {
 	dels := adt.NewIntervalTree()
 
 	// collect deletes from this level; build first to check lower level overlapped puts
@@ -271,11 +280,11 @@ func checkIntervals(reqs []*pb.RequestOp) (map[string]struct{}, adt.IntervalTree
 		if !ok {
 			continue
 		}
-		putsThen, delsThen, err := checkIntervals(tv.RequestTxn.Success)
+		putsThen, delsThen, err := checkIntervals(tv.RequestTxn.Success, lg, moreClientMsg)
 		if err != nil {
 			return nil, dels, err
 		}
-		putsElse, delsElse, err := checkIntervals(tv.RequestTxn.Failure)
+		putsElse, delsElse, err := checkIntervals(tv.RequestTxn.Failure, lg, moreClientMsg)
 		if err != nil {
 			return nil, dels, err
 		}
@@ -312,6 +321,10 @@ func checkIntervals(reqs []*pb.RequestOp) (map[string]struct{}, adt.IntervalTree
 			continue
 		}
 		k := string(tv.RequestPut.Key)
+		leaseID := tv.RequestPut.Lease
+		if leaseID != 0 {
+			lg.Info("[debug-serverless-etcd] txn put", zap.String("key", k), zap.Int64("lease-id", leaseID), zap.String("moreClientMsg", moreClientMsg))
+		}
 		if _, ok := puts[k]; ok {
 			return nil, dels, rpctypes.ErrGRPCDuplicateKey
 		}
