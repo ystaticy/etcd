@@ -594,6 +594,7 @@ func (a *applierV3backend) Compaction(compaction *pb.CompactionRequest) (*pb.Com
 }
 
 func (a *applierV3backend) LeaseGrant(lc *pb.LeaseGrantRequest) (*pb.LeaseGrantResponse, error) {
+	a.s.lg.Info("[debug-serverless-etcd] applierV3backend LeaseGrant", zap.Int64("id", lc.ID), zap.Int64("ttl", lc.TTL))
 	l, err := a.s.lessor.Grant(lease.LeaseID(lc.ID), lc.TTL)
 	resp := &pb.LeaseGrantResponse{}
 	if err == nil {
@@ -605,6 +606,7 @@ func (a *applierV3backend) LeaseGrant(lc *pb.LeaseGrantRequest) (*pb.LeaseGrantR
 }
 
 func (a *applierV3backend) LeaseRevoke(lc *pb.LeaseRevokeRequest) (*pb.LeaseRevokeResponse, error) {
+	a.s.lg.Info("[debug-serverless-etcd] applierV3backend LeaseRevoke", zap.Int64("id", lc.ID))
 	err := a.s.lessor.Revoke(lease.LeaseID(lc.ID))
 	return &pb.LeaseRevokeResponse{Header: newHeader(a.s)}, err
 }
