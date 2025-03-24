@@ -18,7 +18,9 @@ package v3rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"go.etcd.io/etcd/etcdserver"
@@ -69,12 +71,12 @@ func getClientHostPort(ctx context.Context) (string, string, error) {
 
 }
 
-func warnLog(ctx context.Context, now time.Time, request string, lg *zap.Logger, warnDuration time.Duration) error {
+func warnLog(ctx context.Context, now time.Time, request string, lg *zap.Logger, warnDuration time.Duration, isSkipDuration bool) error {
 	if lg == nil {
 		lg.Error("[debug-serverless] logger is nil")
 		return nil
 	}
-	if time.Since(now) > warnDuration { // 100ms
+	if isSkipDuration || time.Since(now) > warnDuration { // 100ms
 		host, port, err := getClientHostPort(ctx)
 		if err != nil {
 			lg.Error("[debug-serverless] get client host port err",
@@ -101,7 +103,7 @@ func (s *kvServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeResp
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(Range):"+r.String(), s.lg, s.cfg.WarningApplyDuration)
+	warnLog(ctx, opStartTime, "(Range):"+r.String(), s.lg, s.cfg.WarningApplyDuration, false)
 	s.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -116,7 +118,14 @@ func (s *kvServer) Put(ctx context.Context, r *pb.PutRequest) (*pb.PutResponse, 
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(Put):"+string(r.Key), s.lg, s.cfg.WarningApplyDuration)
+
+	isSkipDuration := r.Lease != 0
+	warnLog(ctx, opStartTime,
+		"(Put):"+string(r.Key)+
+			";leaseID:"+strconv.FormatInt(r.Lease, 10)+
+			";IgnoreLease:"+fmt.Sprintf("%t", r.IgnoreLease),
+		s.lg,
+		s.cfg.WarningApplyDuration, isSkipDuration)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -132,7 +141,7 @@ func (s *kvServer) DeleteRange(ctx context.Context, r *pb.DeleteRangeRequest) (*
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(DeleteRange):"+r.String(), s.lg, s.cfg.WarningApplyDuration)
+	warnLog(ctx, opStartTime, "(DeleteRange):"+r.String(), s.lg, s.cfg.WarningApplyDuration, true)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -142,11 +151,19 @@ func (s *kvServer) Txn(ctx context.Context, r *pb.TxnRequest) (*pb.TxnResponse, 
 	if err := checkTxnRequest(r, int(s.maxTxnOps)); err != nil {
 		return nil, err
 	}
+
+	host, port, err := getClientHostPort(ctx)
+	if err != nil {
+		s.lg.Error("[debug-serverless] get client host port err",
+			zap.Error(err),
+		)
+	}
+
 	// check for forbidden put/del overlaps after checking request to avoid quadratic blowup
-	if _, _, err := checkIntervals(r.Success); err != nil {
+	if _, _, err := checkIntervals(r.Success, s.lg, "Client:"+host+":"+port); err != nil {
 		return nil, err
 	}
-	if _, _, err := checkIntervals(r.Failure); err != nil {
+	if _, _, err := checkIntervals(r.Failure, s.lg, "Client:"+host+":"+port); err != nil {
 		return nil, err
 	}
 
@@ -155,7 +172,8 @@ func (s *kvServer) Txn(ctx context.Context, r *pb.TxnRequest) (*pb.TxnResponse, 
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(Txn):", s.lg, s.cfg.WarningApplyDuration)
+
+	warnLog(ctx, opStartTime, "(Txn)", s.lg, s.cfg.WarningApplyDuration, false)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -168,7 +186,7 @@ func (s *kvServer) Compact(ctx context.Context, r *pb.CompactionRequest) (*pb.Co
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(Compact):"+r.String(), s.lg, s.cfg.WarningApplyDuration)
+	warnLog(ctx, opStartTime, "(Compact):"+r.String(), s.lg, s.cfg.WarningApplyDuration, false)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -235,7 +253,7 @@ func checkTxnRequest(r *pb.TxnRequest, maxTxnOps int) error {
 // checkIntervals tests whether puts and deletes overlap for a list of ops. If
 // there is an overlap, returns an error. If no overlap, return put and delete
 // sets for recursive evaluation.
-func checkIntervals(reqs []*pb.RequestOp) (map[string]struct{}, adt.IntervalTree, error) {
+func checkIntervals(reqs []*pb.RequestOp, lg *zap.Logger, moreClientMsg string) (map[string]struct{}, adt.IntervalTree, error) {
 	dels := adt.NewIntervalTree()
 
 	// collect deletes from this level; build first to check lower level overlapped puts
@@ -264,11 +282,11 @@ func checkIntervals(reqs []*pb.RequestOp) (map[string]struct{}, adt.IntervalTree
 		if !ok {
 			continue
 		}
-		putsThen, delsThen, err := checkIntervals(tv.RequestTxn.Success)
+		putsThen, delsThen, err := checkIntervals(tv.RequestTxn.Success, lg, moreClientMsg)
 		if err != nil {
 			return nil, dels, err
 		}
-		putsElse, delsElse, err := checkIntervals(tv.RequestTxn.Failure)
+		putsElse, delsElse, err := checkIntervals(tv.RequestTxn.Failure, lg, moreClientMsg)
 		if err != nil {
 			return nil, dels, err
 		}
@@ -305,6 +323,10 @@ func checkIntervals(reqs []*pb.RequestOp) (map[string]struct{}, adt.IntervalTree
 			continue
 		}
 		k := string(tv.RequestPut.Key)
+		leaseID := tv.RequestPut.Lease
+		if leaseID != 0 {
+			lg.Info("[debug-serverless-etcd] txn put", zap.String("key", k), zap.Int64("lease-id", leaseID), zap.String("moreClientMsg", moreClientMsg))
+		}
 		if _, ok := puts[k]; ok {
 			return nil, dels, rpctypes.ErrGRPCDuplicateKey
 		}
