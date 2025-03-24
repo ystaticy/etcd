@@ -179,7 +179,9 @@ func (a *applierV3backend) Apply(r *pb.InternalRaftRequest) *applyResult {
 }
 
 func (a *applierV3backend) Put(txn mvcc.TxnWrite, p *pb.PutRequest) (resp *pb.PutResponse, trace *traceutil.Trace, err error) {
-	a.s.lg.Info("[debug-serverless-etcd] applierV3backend Put", zap.String("put-key", string(p.Key)), zap.Int64("lease-id", p.Lease))
+	if p.Lease != 0 {
+		a.s.lg.Info("[debug-serverless-etcd] applierV3backend Put", zap.String("put-key", string(p.Key)), zap.Int64("lease-id", p.Lease))
+	}
 	resp = &pb.PutResponse{}
 	resp.Header = &pb.ResponseHeader{}
 	trace = traceutil.New("put",
