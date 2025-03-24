@@ -14,7 +14,12 @@
 
 package mvcc
 
-import "go.etcd.io/etcd/lease"
+import (
+	"runtime/debug"
+
+	"go.etcd.io/etcd/lease"
+	"go.uber.org/zap"
+)
 
 type metricsTxnWrite struct {
 	TxnWrite
@@ -22,14 +27,15 @@ type metricsTxnWrite struct {
 	puts    uint
 	deletes uint
 	putSize int64
+	lg      *zap.Logger
 }
 
-func newMetricsTxnRead(tr TxnRead) TxnRead {
-	return &metricsTxnWrite{&txnReadWrite{tr}, 0, 0, 0, 0}
+func newMetricsTxnRead(tr TxnRead, lg *zap.Logger) TxnRead {
+	return &metricsTxnWrite{&txnReadWrite{tr}, 0, 0, 0, 0, lg}
 }
 
-func newMetricsTxnWrite(tw TxnWrite) TxnWrite {
-	return &metricsTxnWrite{tw, 0, 0, 0, 0}
+func newMetricsTxnWrite(tw TxnWrite, lg *zap.Logger) TxnWrite {
+	return &metricsTxnWrite{tw, 0, 0, 0, 0, lg}
 }
 
 func (tw *metricsTxnWrite) Range(key, end []byte, ro RangeOptions) (*RangeResult, error) {
@@ -68,4 +74,9 @@ func (tw *metricsTxnWrite) End() {
 	deletes := float64(tw.deletes)
 	deleteCounter.Add(deletes)
 	deleteCounterDebug.Add(deletes) // TODO: remove in 3.5 release
+
+	if deletes != 0 && tw.lg != nil {
+		tw.lg.Info("[debug-serverless-etcd] lease and delete", zap.Float64("deletes", deletes), zap.String("stack", string(debug.Stack())))
+	}
+
 }

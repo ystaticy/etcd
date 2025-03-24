@@ -41,7 +41,7 @@ func (s *store) Read(trace *traceutil.Trace) TxnRead {
 	tx.RLock() // RLock is no-op. concurrentReadTx does not need to be locked after it is created.
 	firstRev, rev := s.compactMainRev, s.currentRev
 	s.revMu.RUnlock()
-	return newMetricsTxnRead(&storeTxnRead{s, tx, firstRev, rev, trace})
+	return newMetricsTxnRead(&storeTxnRead{s, tx, firstRev, rev, trace}, s.lg)
 }
 
 func (tr *storeTxnRead) FirstRev() int64 { return tr.firstRev }
@@ -74,7 +74,7 @@ func (s *store) Write(trace *traceutil.Trace) TxnWrite {
 		beginRev:     s.currentRev,
 		changes:      make([]mvccpb.KeyValue, 0, 4),
 	}
-	return newMetricsTxnWrite(tw)
+	return newMetricsTxnWrite(tw, s.lg)
 }
 
 func (tw *storeTxnWrite) Rev() int64 { return tw.beginRev }

@@ -18,7 +18,9 @@ package v3rpc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"go.etcd.io/etcd/etcdserver"
@@ -116,7 +118,12 @@ func (s *kvServer) Put(ctx context.Context, r *pb.PutRequest) (*pb.PutResponse, 
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(Put):"+string(r.Key), s.lg, s.cfg.WarningApplyDuration)
+	warnLog(ctx, opStartTime,
+		"(Put):"+string(r.Key)+
+			";leaseID:"+strconv.FormatInt(r.Lease, 10)+
+			";IgnoreLease:"+fmt.Sprintf("%t", r.IgnoreLease),
+		s.lg,
+		s.cfg.WarningApplyDuration)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
