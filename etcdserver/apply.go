@@ -253,7 +253,9 @@ func (a *applierV3backend) DeleteRange(txn mvcc.TxnWrite, dr *pb.DeleteRangeRequ
 			}
 		}
 	}
-
+	a.s.lg.Info("[debug-serverless-etcd] applierV3backend DeleteRange",
+		zap.String("delete-range-key", string(dr.Key)),
+		zap.String("delete-range-end", string(dr.RangeEnd)))
 	resp.Deleted, resp.Header.Revision = txn.DeleteRange(dr.Key, end)
 	return resp, nil
 }
