@@ -118,12 +118,14 @@ func (s *kvServer) Put(ctx context.Context, r *pb.PutRequest) (*pb.PutResponse, 
 	if err != nil {
 		return nil, togRPCError(err)
 	}
+
+	isSkipDuration := r.Lease != 0
 	warnLog(ctx, opStartTime,
 		"(Put):"+string(r.Key)+
 			";leaseID:"+strconv.FormatInt(r.Lease, 10)+
 			";IgnoreLease:"+fmt.Sprintf("%t", r.IgnoreLease),
 		s.lg,
-		s.cfg.WarningApplyDuration, true)
+		s.cfg.WarningApplyDuration, isSkipDuration)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
@@ -171,7 +173,7 @@ func (s *kvServer) Txn(ctx context.Context, r *pb.TxnRequest) (*pb.TxnResponse, 
 		return nil, togRPCError(err)
 	}
 
-	warnLog(ctx, opStartTime, "(Txn)", s.lg, s.cfg.WarningApplyDuration, true)
+	warnLog(ctx, opStartTime, "(Txn)", s.lg, s.cfg.WarningApplyDuration, false)
 
 	s.hdr.fill(resp.Header)
 	return resp, nil
