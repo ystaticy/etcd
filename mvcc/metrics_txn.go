@@ -16,7 +16,6 @@ package mvcc
 
 import (
 	"go.etcd.io/etcd/lease"
-	"go.uber.org/zap"
 )
 
 type metricsTxnWrite struct {
@@ -25,15 +24,14 @@ type metricsTxnWrite struct {
 	puts    uint
 	deletes uint
 	putSize int64
-	lg      *zap.Logger
 }
 
-func newMetricsTxnRead(tr TxnRead, lg *zap.Logger) TxnRead {
-	return &metricsTxnWrite{&txnReadWrite{tr}, 0, 0, 0, 0, lg}
+func newMetricsTxnRead(tr TxnRead) TxnRead {
+	return &metricsTxnWrite{&txnReadWrite{tr}, 0, 0, 0, 0}
 }
 
-func newMetricsTxnWrite(tw TxnWrite, lg *zap.Logger) TxnWrite {
-	return &metricsTxnWrite{tw, 0, 0, 0, 0, lg}
+func newMetricsTxnWrite(tw TxnWrite) TxnWrite {
+	return &metricsTxnWrite{tw, 0, 0, 0, 0}
 }
 
 func (tw *metricsTxnWrite) Range(key, end []byte, ro RangeOptions) (*RangeResult, error) {
