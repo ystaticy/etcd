@@ -45,7 +45,7 @@ func (ls *LeaseServer) LeaseGrant(ctx context.Context, cr *pb.LeaseGrantRequest)
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(LeaseGrant):"+cr.String(), ls.lg, ls.cfg.WarningApplyDuration)
+	warnLog(ctx, opStartTime, "(LeaseGrant):"+cr.String(), ls.lg, ls.cfg.WarningApplyDuration, false)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -56,7 +56,7 @@ func (ls *LeaseServer) LeaseRevoke(ctx context.Context, rr *pb.LeaseRevokeReques
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(LeaseRevoke):"+rr.String(), ls.lg, ls.cfg.WarningApplyDuration)
+	warnLog(ctx, opStartTime, "(LeaseRevoke):"+rr.String(), ls.lg, ls.cfg.WarningApplyDuration, false)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -74,7 +74,7 @@ func (ls *LeaseServer) LeaseTimeToLive(ctx context.Context, rr *pb.LeaseTimeToLi
 			TTL:    -1,
 		}
 	}
-	warnLog(ctx, opStartTime, "(LeaseTimeToLive):"+rr.String(), ls.lg, ls.cfg.WarningApplyDuration)
+	warnLog(ctx, opStartTime, "(LeaseTimeToLive):"+rr.String(), ls.lg, ls.cfg.WarningApplyDuration, false)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -91,7 +91,7 @@ func (ls *LeaseServer) LeaseLeases(ctx context.Context, rr *pb.LeaseLeasesReques
 			Leases: []*pb.LeaseStatus{},
 		}
 	}
-	warnLog(ctx, opStartTime, "(LeaseLeases):"+rr.String(), ls.lg, ls.cfg.WarningApplyDuration)
+	warnLog(ctx, opStartTime, "(LeaseLeases):"+rr.String(), ls.lg, ls.cfg.WarningApplyDuration, false)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }

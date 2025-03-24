@@ -15,8 +15,6 @@
 package mvcc
 
 import (
-	"runtime/debug"
-
 	"go.etcd.io/etcd/lease"
 	"go.uber.org/zap"
 )
@@ -74,9 +72,4 @@ func (tw *metricsTxnWrite) End() {
 	deletes := float64(tw.deletes)
 	deleteCounter.Add(deletes)
 	deleteCounterDebug.Add(deletes) // TODO: remove in 3.5 release
-
-	if deletes != 0 && tw.lg != nil {
-		tw.lg.Info("[debug-serverless-etcd] lease and delete", zap.Float64("deletes", deletes), zap.String("stack", string(debug.Stack())))
-	}
-
 }
