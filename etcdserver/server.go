@@ -1143,9 +1143,10 @@ func (s *EtcdServer) revokeExpiredLeases(leases []*lease.Lease) {
 						leaseExpired.Inc()
 						if lg != nil {
 							lg.Warn("[debug-serverless] revoked expired lease",
+								zap.Int64("lease-id int64", lid),
 								zap.String("lease-id", fmt.Sprintf("%016x", lid)))
 						} else {
-							plog.Warningf("[debug-serverless] revoked expired lease: %016x", lid)
+							plog.Warningf("[debug-serverless] revoked expired lease: id hex %016x, id int64 %d", lid, lid)
 						}
 					} else {
 						if lg != nil {
