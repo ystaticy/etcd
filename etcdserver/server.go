@@ -32,7 +32,7 @@ import (
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/coreos/pkg/capnslog"
-	humanize "github.com/dustin/go-humanize"
+	"github.com/dustin/go-humanize"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.etcd.io/etcd/auth"
 	"go.etcd.io/etcd/etcdserver/api"
@@ -1141,6 +1141,12 @@ func (s *EtcdServer) revokeExpiredLeases(leases []*lease.Lease) {
 					_, lerr := s.LeaseRevoke(ctx, &pb.LeaseRevokeRequest{ID: lid})
 					if lerr == nil {
 						leaseExpired.Inc()
+						if lg != nil {
+							lg.Warn("[debug-serverless] revoked expired lease",
+								zap.String("lease-id", fmt.Sprintf("%016x", lid)))
+						} else {
+							plog.Warningf("[debug-serverless] revoked expired lease: %016x", lid)
+						}
 					} else {
 						if lg != nil {
 							lg.Warn(
