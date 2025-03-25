@@ -122,6 +122,7 @@ func (s *kvServer) Put(ctx context.Context, r *pb.PutRequest) (*pb.PutResponse, 
 	isSkipDuration := r.Lease != 0
 	warnLog(ctx, opStartTime,
 		"(Put):"+string(r.Key)+
+			fmt.Sprintf(";leaseID hex:%016x", r.Lease)+
 			";leaseID:"+strconv.FormatInt(r.Lease, 10)+
 			";IgnoreLease:"+fmt.Sprintf("%t", r.IgnoreLease),
 		s.lg,
@@ -325,7 +326,11 @@ func checkIntervals(reqs []*pb.RequestOp, lg *zap.Logger, moreClientMsg string) 
 		k := string(tv.RequestPut.Key)
 		leaseID := tv.RequestPut.Lease
 		if leaseID != 0 {
-			lg.Info("[debug-serverless-etcd] txn put", zap.String("key", k), zap.Int64("lease-id", leaseID), zap.String("moreClientMsg", moreClientMsg))
+			lg.Info("[debug-serverless-etcd] txn put",
+				zap.String("key", k),
+				zap.Int64("lease-id", leaseID),
+				zap.String("lease-id hex", fmt.Sprintf("%016x", leaseID)),
+				zap.String("moreClientMsg", moreClientMsg))
 		}
 		if _, ok := puts[k]; ok {
 			return nil, dels, rpctypes.ErrGRPCDuplicateKey

@@ -16,6 +16,7 @@ package v3rpc
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -45,7 +46,7 @@ func (ls *LeaseServer) LeaseGrant(ctx context.Context, cr *pb.LeaseGrantRequest)
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(LeaseGrant):"+cr.String(), ls.lg, ls.cfg.WarningApplyDuration, true)
+	warnLog(ctx, opStartTime, fmt.Sprintf("(LeaseGrant): id hex %016x", cr.ID)+cr.String(), ls.lg, ls.cfg.WarningApplyDuration, true)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -56,7 +57,7 @@ func (ls *LeaseServer) LeaseRevoke(ctx context.Context, rr *pb.LeaseRevokeReques
 	if err != nil {
 		return nil, togRPCError(err)
 	}
-	warnLog(ctx, opStartTime, "(LeaseRevoke):"+rr.String(), ls.lg, ls.cfg.WarningApplyDuration, true)
+	warnLog(ctx, opStartTime, fmt.Sprintf("(LeaseRevoke): id hex %016x", rr.ID)+rr.String(), ls.lg, ls.cfg.WarningApplyDuration, true)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
@@ -74,7 +75,7 @@ func (ls *LeaseServer) LeaseTimeToLive(ctx context.Context, rr *pb.LeaseTimeToLi
 			TTL:    -1,
 		}
 	}
-	warnLog(ctx, opStartTime, "(LeaseTimeToLive):"+rr.String(), ls.lg, ls.cfg.WarningApplyDuration, true)
+	warnLog(ctx, opStartTime, fmt.Sprintf("(LeaseTimeToLive): id hex %016x", rr.ID)+rr.String(), ls.lg, ls.cfg.WarningApplyDuration, true)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }

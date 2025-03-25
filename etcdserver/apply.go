@@ -608,7 +608,10 @@ func (a *applierV3backend) LeaseGrant(lc *pb.LeaseGrantRequest) (*pb.LeaseGrantR
 }
 
 func (a *applierV3backend) LeaseRevoke(lc *pb.LeaseRevokeRequest) (*pb.LeaseRevokeResponse, error) {
-	a.s.lg.Info("[debug-serverless-etcd] applierV3backend LeaseRevoke", zap.Int64("id", lc.ID))
+	a.s.lg.Info("[debug-serverless-etcd] applierV3backend LeaseRevoke",
+		zap.String("lease-id hex", fmt.Sprintf("%016x", lc.ID)),
+		zap.Int64("lease-id", lc.ID),
+	)
 	err := a.s.lessor.Revoke(lease.LeaseID(lc.ID))
 	return &pb.LeaseRevokeResponse{Header: newHeader(a.s)}, err
 }
