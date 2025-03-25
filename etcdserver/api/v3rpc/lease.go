@@ -16,13 +16,14 @@ package v3rpc
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"time"
 
 	"go.etcd.io/etcd/etcdserver"
 	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
 	"go.etcd.io/etcd/lease"
-
 	"go.uber.org/zap"
 )
 
@@ -30,32 +31,39 @@ type LeaseServer struct {
 	lg  *zap.Logger
 	hdr header
 	le  etcdserver.Lessor
+	cfg *etcdserver.ServerConfig
 }
 
 func NewLeaseServer(s *etcdserver.EtcdServer) pb.LeaseServer {
-	return &LeaseServer{lg: s.Cfg.Logger, le: s, hdr: newHeader(s)}
+
+	return &LeaseServer{lg: s.Cfg.Logger, le: s, hdr: newHeader(s), cfg: &s.Cfg}
 }
 
 func (ls *LeaseServer) LeaseGrant(ctx context.Context, cr *pb.LeaseGrantRequest) (*pb.LeaseGrantResponse, error) {
+	opStartTime := time.Now()
 	resp, err := ls.le.LeaseGrant(ctx, cr)
 
 	if err != nil {
 		return nil, togRPCError(err)
 	}
+	warnLog(ctx, opStartTime, fmt.Sprintf("(LeaseGrant): id hex %016x", cr.ID)+cr.String(), ls.lg, ls.cfg.WarningApplyDuration, true)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
 
 func (ls *LeaseServer) LeaseRevoke(ctx context.Context, rr *pb.LeaseRevokeRequest) (*pb.LeaseRevokeResponse, error) {
+	opStartTime := time.Now()
 	resp, err := ls.le.LeaseRevoke(ctx, rr)
 	if err != nil {
 		return nil, togRPCError(err)
 	}
+	warnLog(ctx, opStartTime, fmt.Sprintf("(LeaseRevoke): id hex %016x", rr.ID)+rr.String(), ls.lg, ls.cfg.WarningApplyDuration, true)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
 
 func (ls *LeaseServer) LeaseTimeToLive(ctx context.Context, rr *pb.LeaseTimeToLiveRequest) (*pb.LeaseTimeToLiveResponse, error) {
+	opStartTime := time.Now()
 	resp, err := ls.le.LeaseTimeToLive(ctx, rr)
 	if err != nil && err != lease.ErrLeaseNotFound {
 		return nil, togRPCError(err)
@@ -67,11 +75,13 @@ func (ls *LeaseServer) LeaseTimeToLive(ctx context.Context, rr *pb.LeaseTimeToLi
 			TTL:    -1,
 		}
 	}
+	warnLog(ctx, opStartTime, fmt.Sprintf("(LeaseTimeToLive): id hex %016x", rr.ID)+rr.String(), ls.lg, ls.cfg.WarningApplyDuration, true)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }
 
 func (ls *LeaseServer) LeaseLeases(ctx context.Context, rr *pb.LeaseLeasesRequest) (*pb.LeaseLeasesResponse, error) {
+	opStartTime := time.Now()
 	resp, err := ls.le.LeaseLeases(ctx, rr)
 	if err != nil && err != lease.ErrLeaseNotFound {
 		return nil, togRPCError(err)
@@ -82,6 +92,7 @@ func (ls *LeaseServer) LeaseLeases(ctx context.Context, rr *pb.LeaseLeasesReques
 			Leases: []*pb.LeaseStatus{},
 		}
 	}
+	warnLog(ctx, opStartTime, "(LeaseLeases):"+rr.String(), ls.lg, ls.cfg.WarningApplyDuration, true)
 	ls.hdr.fill(resp.Header)
 	return resp, nil
 }

@@ -112,7 +112,7 @@ func (s *EtcdServer) newApplierV3() applierV3 {
 func (a *applierV3backend) Apply(r *pb.InternalRaftRequest) *applyResult {
 	ar := &applyResult{}
 	defer func(start time.Time) {
-		warnOfExpensiveRequest(a.s.getLogger(), a.s.Cfg.WarningApplyDuration, start, &pb.InternalRaftStringer{Request: r}, ar.resp, ar.err)
+		warnOfExpensiveRequest(a.s.getLogger(), a.s.Cfg.WarningApplyDuration, start, &pb.InternalRaftStringer{Request: r}, ar.resp, ar.err, "Apply")
 		if ar.err != nil {
 			warnOfFailedRequest(a.s.getLogger(), start, &pb.InternalRaftStringer{Request: r}, ar.resp, ar.err)
 		}
@@ -179,6 +179,9 @@ func (a *applierV3backend) Apply(r *pb.InternalRaftRequest) *applyResult {
 }
 
 func (a *applierV3backend) Put(txn mvcc.TxnWrite, p *pb.PutRequest) (resp *pb.PutResponse, trace *traceutil.Trace, err error) {
+	if p.Lease != 0 {
+		a.s.lg.Info("[debug-serverless-etcd] applierV3backend Put", zap.String("put-key", string(p.Key)), zap.Int64("lease-id", p.Lease))
+	}
 	resp = &pb.PutResponse{}
 	resp.Header = &pb.ResponseHeader{}
 	trace = traceutil.New("put",
@@ -252,7 +255,9 @@ func (a *applierV3backend) DeleteRange(txn mvcc.TxnWrite, dr *pb.DeleteRangeRequ
 			}
 		}
 	}
-
+	a.s.lg.Info("[debug-serverless-etcd] applierV3backend DeleteRange",
+		zap.String("delete-range-key", string(dr.Key)),
+		zap.String("delete-range-end", string(dr.RangeEnd)))
 	resp.Deleted, resp.Header.Revision = txn.DeleteRange(dr.Key, end)
 	return resp, nil
 }
@@ -591,6 +596,7 @@ func (a *applierV3backend) Compaction(compaction *pb.CompactionRequest) (*pb.Com
 }
 
 func (a *applierV3backend) LeaseGrant(lc *pb.LeaseGrantRequest) (*pb.LeaseGrantResponse, error) {
+	a.s.lg.Info("[debug-serverless-etcd] applierV3backend LeaseGrant", zap.Int64("id", lc.ID), zap.Int64("ttl", lc.TTL))
 	l, err := a.s.lessor.Grant(lease.LeaseID(lc.ID), lc.TTL)
 	resp := &pb.LeaseGrantResponse{}
 	if err == nil {
@@ -602,6 +608,10 @@ func (a *applierV3backend) LeaseGrant(lc *pb.LeaseGrantRequest) (*pb.LeaseGrantR
 }
 
 func (a *applierV3backend) LeaseRevoke(lc *pb.LeaseRevokeRequest) (*pb.LeaseRevokeResponse, error) {
+	a.s.lg.Info("[debug-serverless-etcd] applierV3backend LeaseRevoke",
+		zap.String("lease-id hex", fmt.Sprintf("%016x", lc.ID)),
+		zap.Int64("lease-id", lc.ID),
+	)
 	err := a.s.lessor.Revoke(lease.LeaseID(lc.ID))
 	return &pb.LeaseRevokeResponse{Header: newHeader(a.s)}, err
 }

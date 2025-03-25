@@ -15,8 +15,12 @@
 package etcdserver
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"net"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -25,8 +29,8 @@ import (
 	"go.etcd.io/etcd/etcdserver/api/rafthttp"
 	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
 	"go.etcd.io/etcd/pkg/types"
-
 	"go.uber.org/zap"
+	"google.golang.org/grpc/peer"
 )
 
 // isConnectedToQuorumSince checks whether the local member is connected to the
@@ -103,12 +107,12 @@ func (nc *notifier) notify(err error) {
 	close(nc.c)
 }
 
-func warnOfExpensiveRequest(lg *zap.Logger, warningApplyDuration time.Duration, now time.Time, reqStringer fmt.Stringer, respMsg proto.Message, err error) {
+func warnOfExpensiveRequest(lg *zap.Logger, warningApplyDuration time.Duration, now time.Time, reqStringer fmt.Stringer, respMsg proto.Message, err error, funcName string) {
 	var resp string
 	if !isNil(respMsg) {
 		resp = fmt.Sprintf("size:%d", proto.Size(respMsg))
 	}
-	warnOfExpensiveGenericRequest(lg, warningApplyDuration, now, reqStringer, "", resp, err)
+	warnOfExpensiveGenericRequest(nil, lg, warningApplyDuration, now, reqStringer, "", resp, err, funcName)
 }
 
 func warnOfFailedRequest(lg *zap.Logger, now time.Time, reqStringer fmt.Stringer, respMsg proto.Message, err error) {
@@ -130,7 +134,7 @@ func warnOfFailedRequest(lg *zap.Logger, now time.Time, reqStringer fmt.Stringer
 	}
 }
 
-func warnOfExpensiveReadOnlyTxnRequest(lg *zap.Logger, warningApplyDuration time.Duration, now time.Time, r *pb.TxnRequest, txnResponse *pb.TxnResponse, err error) {
+func warnOfExpensiveReadOnlyTxnRequest(ctx context.Context, lg *zap.Logger, warningApplyDuration time.Duration, now time.Time, r *pb.TxnRequest, txnResponse *pb.TxnResponse, err error) {
 	reqStringer := pb.NewLoggableTxnRequest(r)
 	var resp string
 	if !isNil(txnResponse) {
@@ -149,29 +153,52 @@ func warnOfExpensiveReadOnlyTxnRequest(lg *zap.Logger, warningApplyDuration time
 		}
 		resp = fmt.Sprintf("responses:<%s> size:%d", strings.Join(resps, " "), txnResponse.Size())
 	}
-	warnOfExpensiveGenericRequest(lg, warningApplyDuration, now, reqStringer, "read-only range ", resp, err)
+	warnOfExpensiveGenericRequest(ctx, lg, warningApplyDuration, now, reqStringer, "read-only range ", resp, err, "warnOfExpensiveReadOnlyTxnRequest")
 }
 
-func warnOfExpensiveReadOnlyRangeRequest(lg *zap.Logger, warningApplyDuration time.Duration, now time.Time, reqStringer fmt.Stringer, rangeResponse *pb.RangeResponse, err error) {
+func getClientHostPort(ctx context.Context) (string, string, error) {
+	if ctx == nil {
+		return "", "", nil
+	}
+	if p, ok := peer.FromContext(ctx); ok {
+		addr := p.Addr.String()
+
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return "", "", err
+		}
+		return host, port, nil
+	}
+	return "", "", errors.New("get peer from ctx is not ok")
+
+}
+
+func warnOfExpensiveReadOnlyRangeRequest(ctx context.Context, lg *zap.Logger, warningApplyDuration time.Duration, now time.Time, reqStringer fmt.Stringer, rangeResponse *pb.RangeResponse, err error) {
 	var resp string
 	if !isNil(rangeResponse) {
 		resp = fmt.Sprintf("range_response_count:%d size:%d", len(rangeResponse.Kvs), rangeResponse.Size())
 	}
-	warnOfExpensiveGenericRequest(lg, warningApplyDuration, now, reqStringer, "read-only range ", resp, err)
+	warnOfExpensiveGenericRequest(ctx, lg, warningApplyDuration, now, reqStringer, "read-only range ", resp, err, "warnOfExpensiveReadOnlyRangeRequest")
 }
 
-func warnOfExpensiveGenericRequest(lg *zap.Logger, warningApplyDuration time.Duration, now time.Time, reqStringer fmt.Stringer, prefix string, resp string, err error) {
+func warnOfExpensiveGenericRequest(ctx context.Context, lg *zap.Logger, warningApplyDuration time.Duration, now time.Time, reqStringer fmt.Stringer, prefix string, resp string, err error, funcName string) {
 	d := time.Since(now)
 	if d > warningApplyDuration {
 		if lg != nil {
+			clientHost, clientPort, err2 := getClientHostPort(ctx)
 			lg.Warn(
 				"apply request took too long",
+				zap.String("funcName", funcName),
+				zap.String("clientHost", clientHost),
+				zap.String("clientPort", clientPort),
+				zap.Error(err2),
 				zap.Duration("took", d),
 				zap.Duration("expected-duration", warningApplyDuration),
 				zap.String("prefix", prefix),
 				zap.String("request", reqStringer.String()),
 				zap.String("response", resp),
 				zap.Error(err),
+				zap.String("stack", string(debug.Stack())),
 			)
 		} else {
 			var result string
